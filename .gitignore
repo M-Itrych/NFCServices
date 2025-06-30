@@ -110,15 +110,3 @@ test/.test_coverage.dart
 # Temporary files
 *.tmp
 *.temp
-
-# macOS related
-**/macos/DerivedData/
-**/macos/Podfile
-**/macos/Podfile.lock
-**/macos/**/Pods/
-**/macos/**/.symlinks/
-**/macos/**/xcuserdata
-
-# Additional iOS Cocoapods
-**/ios/Podfile
-**/ios/Podfile.lock
