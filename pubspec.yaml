@@ -13,8 +13,6 @@ dependencies:
   convert: ^3.0.1
   encrypt: ^5.0.1
   pointycastle: ^3.9.1
-  shared_preferences: ^2.2.2
-  mockito: ^5.0.0
 
 dev_dependencies:
   flutter_test:

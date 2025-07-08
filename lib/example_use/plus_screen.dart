@@ -591,14 +591,11 @@ class _PlusScreenState extends State<PlusScreen> {
                     });
 
                     try {
-                      // Convert key type string to integer (0 for Key A, 1 for Key B)
-                      final keyTypeInt = _selectedKeyType == 'Key A' ? 0 : 1;
-                      
-                      final plusServices = PlusServices(debugMode: true);
+                      final plusServices = PlusNfcServices(debugMode: true);
                       final result = await plusServices.readPlus(
                         int.parse(_sectorController.text),
                         int.parse(_blockController.text),
-                        KeyType.values[keyTypeInt],
+                        _selectedKeyType,
                         _keyController.text,
                         isPlaintext: _isPlaintext,
                         requiresMacOnResponse: _requiresMacOnResponse,

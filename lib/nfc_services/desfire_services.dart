@@ -111,7 +111,6 @@ const Map<String, String> desfireErrorCodeMap = {
 sealed class DesfireResult<T> {
   const DesfireResult();
   
-  bool get isError => this is DesfireError<T>;
   bool get isSuccess => this is DesfireSuccess<T>;
   DesfireErrorCode? get errorCode => this is DesfireError<T> ? (this as DesfireError<T>).error : null;
   T? get data => this is DesfireSuccess<T> ? (this as DesfireSuccess<T>).data : null;
@@ -209,8 +208,8 @@ class DesfireNfcServices {
   /// Validates input parameters for DESFire operations
   /// 
   /// [applicationId] the application ID in hex format (6 characters)
-  /// [fileId] the file ID in hex format
-  /// [keyNumber] the key number in hex format
+  /// [fileId] the file ID in hex format (0-31)
+  /// [keyNumber] the key number in hex format (0-13)
   /// [authKey] the authentication key in hex format (32 characters)
   /// 
   /// Returns [DesfireErrorCode.success] if validation passes, otherwise returns
@@ -229,24 +228,39 @@ class DesfireNfcServices {
     ArgumentError.checkNotNull(keyNumber, 'keyNumber');
     ArgumentError.checkNotNull(authKey, 'authKey');
 
+    // Validate applicationId (6 hex characters)
     if (applicationId.length != DesfireConstants.applicationIdLength) {
       return DesfireErrorCode.invalidApplicationId;
     }
     if (!RegExp(r'^[0-9A-Fa-f]+$').hasMatch(applicationId)) {
       return DesfireErrorCode.invalidApplicationId;
     }
+
+    // Validate fileId (0-31 as integer string)
     if (fileId.isEmpty) {
       return DesfireErrorCode.invalidFileId;
     }
-    if (!RegExp(r'^[0-9A-Fa-f]+$').hasMatch(fileId)) {
+    if (!RegExp(r'^[0-9]+$').hasMatch(fileId)) {
       return DesfireErrorCode.invalidFileId;
     }
+    final fileIdInt = int.tryParse(fileId);
+    if (fileIdInt == null || fileIdInt < 0 || fileIdInt > 31) {
+      return DesfireErrorCode.invalidFileId;
+    }
+
+    // Validate keyNumber (0-13 as integer string)
     if (keyNumber.isEmpty) {
       return DesfireErrorCode.invalidKeyNumber;
     }
-    if (!RegExp(r'^[0-9A-Fa-f]+$').hasMatch(keyNumber)) {
+    if (!RegExp(r'^[0-9]+$').hasMatch(keyNumber)) {
       return DesfireErrorCode.invalidKeyNumber;
     }
+    final keyNumberInt = int.tryParse(keyNumber);
+    if (keyNumberInt == null || keyNumberInt < 0 || keyNumberInt > 13) {
+      return DesfireErrorCode.invalidKeyNumber;
+    }
+
+    // Validate authKey (32 hex characters)
     if (authKey.length != DesfireConstants.keyHexLength) {
       return DesfireErrorCode.invalidAuthKey;
     }
@@ -552,7 +566,7 @@ class DesfireNfcServices {
       
       // Step 1: First authentication step
       final firstStepResult = await _processFirstAuthStep(keyNumber, authKey);
-      if (firstStepResult.isError) {
+      if (!firstStepResult.isSuccess) {
         return DesfireError<DesfireAuthResult>(firstStepResult.errorCode!, message: (firstStepResult as DesfireError<DesfireFirstAuthResult>).message, exception: (firstStepResult as DesfireError<DesfireFirstAuthResult>).exception);
       }
       
@@ -560,7 +574,7 @@ class DesfireNfcServices {
       
       // Step 2: Second authentication step
       final secondStepResult = await _processSecondAuthStep(firstAuthResult, authKey, attempt);
-      if (secondStepResult.isError) {
+      if (!secondStepResult.isSuccess) {
         // Retry logic
         if (attempt < DesfireConstants.maxRetryAttempts) {
           _log("Retrying authentication (attempt ${attempt + 1})", level: 'INFO');
@@ -803,7 +817,7 @@ class DesfireNfcServices {
       // Select application
       _log("Selecting application", level: 'INFO');
       final selectResult = await _selectApplication(applicationId);
-      if (selectResult.isError) {
+      if (!selectResult.isSuccess) {
         _log("[${selectResult.errorCode?.code}] ${selectResult.errorCode?.description}", level: 'ERROR');
         final error = selectResult as DesfireError<void>;
         
@@ -818,7 +832,7 @@ class DesfireNfcServices {
       // Get file settings
       _log("Getting file settings", level: 'INFO');
       final fileSettingsResult = await _getFileSettings(fileId);
-      if (fileSettingsResult.isError) {
+      if (!fileSettingsResult.isSuccess) {
         _log("[${fileSettingsResult.errorCode?.code}] ${fileSettingsResult.errorCode?.description}", level: 'ERROR');
         final error = fileSettingsResult as DesfireError<DesfireFileSettings>;
         
@@ -833,7 +847,7 @@ class DesfireNfcServices {
       // Authenticate with application
       _log("Authenticating with application", level: 'INFO');
       final authResult = await _authenticateWithApplication(authKey, keyNumber);
-      if (authResult.isError) {
+      if (!authResult.isSuccess) {
         _log("[${authResult.errorCode?.code}] ${authResult.errorCode?.description}", level: 'ERROR');
         final error = authResult as DesfireError<DesfireAuthResult>;
         
@@ -850,7 +864,7 @@ class DesfireNfcServices {
       final readResult = await _readEncryptedData(fileId,
         authResult.data!.sessionKey, fileSettingsResult.data!,
       );
-      if (readResult.isError) {
+      if (!readResult.isSuccess) {
         _log("[${readResult.errorCode?.code}] ${readResult.errorCode?.description}", level: 'ERROR');
         final error = readResult as DesfireError<String>;
         

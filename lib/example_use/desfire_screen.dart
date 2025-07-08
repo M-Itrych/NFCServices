@@ -29,7 +29,7 @@ class _DesfireScreenState extends State<DesfireScreen> {
   final TextEditingController _fbpController = TextEditingController(text: '0');
   final TextEditingController _lbpController = TextEditingController(text: '15');
   final TextEditingController _applicationIdController = TextEditingController(text: 'F40001');
-  final TextEditingController _fileIdController = TextEditingController(text: '1');
+  final TextEditingController _fileIdController = TextEditingController(text: '0');
   final TextEditingController _keyNumberController = TextEditingController(text: '0');
   final TextEditingController _authKeyController = TextEditingController(text: '00000000000000000000000000000000');
   final TextEditingController _resultController = TextEditingController();
@@ -78,24 +78,32 @@ class _DesfireScreenState extends State<DesfireScreen> {
     return null;
   }
 
-  /// Validate file ID (hex characters)
+  /// Validate file ID (0-31 as integer)
   String? _validateFileId(String? value) {
     if (value == null || value.isEmpty) {
       return 'File ID is required';
     }
-    if (!RegExp(r'^[0-9A-Fa-f]+$').hasMatch(value)) {
-      return 'File ID must contain only hex characters (0-9, A-F)';
+    if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+      return 'File ID must contain only digits (0-9)';
+    }
+    final fileIdInt = int.tryParse(value);
+    if (fileIdInt == null || fileIdInt < 0 || fileIdInt > 31) {
+      return 'File ID must be between 0-31';
     }
     return null;
   }
 
-  /// Validate key number (hex characters)
+  /// Validate key number (0-13 as integer)
   String? _validateKeyNumber(String? value) {
     if (value == null || value.isEmpty) {
       return 'Key number is required';
     }
-    if (!RegExp(r'^[0-9A-Fa-f]+$').hasMatch(value)) {
-      return 'Key number must contain only hex characters (0-9, A-F)';
+    if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+      return 'Key number must contain only digits (0-9)';
+    }
+    final keyNumberInt = int.tryParse(value);
+    if (keyNumberInt == null || keyNumberInt < 0 || keyNumberInt > 13) {
+      return 'Key number must be between 0-13';
     }
     return null;
   }
@@ -368,17 +376,16 @@ class _DesfireScreenState extends State<DesfireScreen> {
                 TextFormField(
                   controller: _fileIdController,
                   decoration: const InputDecoration(
-                    labelText: 'File ID (hex)',
+                    labelText: 'File ID (0-31)',
                     border: OutlineInputBorder(),
-                    hintText: 'Enter hex file ID',
+                    hintText: 'Enter file ID (0-31)',
                     prefixIcon: Icon(Icons.insert_drive_file),
-                    helperText: 'Format: 0-9, A-F (case insensitive)',
+                    helperText: 'Format: digits only, range: 0-31',
                     errorMaxLines: 2,
                   ),
                   validator: _validateFileId,
                   inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9a-fA-F]')),
-                    UpperCaseTextFormatter(),
+                    FilteringTextInputFormatter.digitsOnly,
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -387,17 +394,16 @@ class _DesfireScreenState extends State<DesfireScreen> {
                 TextFormField(
                   controller: _keyNumberController,
                   decoration: const InputDecoration(
-                    labelText: 'Key Number (hex)',
+                    labelText: 'Key Number (0-13)',
                     border: OutlineInputBorder(),
-                    hintText: 'Enter hex key number',
+                    hintText: 'Enter key number (0-13)',
                     prefixIcon: Icon(Icons.vpn_key),
-                    helperText: 'Format: 0-9, A-F (case insensitive)',
+                    helperText: 'Format: digits only, range: 0-13',
                     errorMaxLines: 2,
                   ),
                   validator: _validateKeyNumber,
                   inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9a-fA-F]')),
-                    UpperCaseTextFormatter(),
+                    FilteringTextInputFormatter.digitsOnly,
                   ],
                 ),
                 const SizedBox(height: 16),

@@ -112,36 +112,6 @@ class BinaryConversion {
     );
   }
 
-  /// Converts a hex string to a decimal string for a byte range.
-  /// 
-  /// [data] the hex string to convert
-  /// [firstBytePosition] the starting byte position (0-based)
-  /// [lastBytePosition] the ending byte position (0-based)
-  /// 
-  /// If firstBytePosition > lastBytePosition, bytes are reversed.
-  /// Throws [ArgumentError] if input is invalid or positions are out of range.
-  /// 
-  /// Returns a decimal string with spaces between bytes.
-  /// 
-  /// Example: toDecimal("12345678", 0, 1) returns "18 52"
-  static String toDecimal(String data, int firstBytePosition, int lastBytePosition) {
-    _validateInput(data, firstBytePosition, lastBytePosition);
-    
-    String processedData = data;
-    if (firstBytePosition > lastBytePosition) {
-      processedData = _reverseHexBytes(data);
-    }
-    
-    final startIndex = firstBytePosition * 2;
-    final endIndex = (lastBytePosition + 1) * 2;
-    final targetData = processedData.substring(startIndex, endIndex);
-    
-    return targetData.replaceAllMapped(
-      RegExp(r'..'),
-      (match) => '${int.parse(match.group(0)!, radix: 16)} ',
-    ).trim();
-  }
-
   /// Extracts a specific byte from a hex string.
   /// 
   /// [data] the hex string

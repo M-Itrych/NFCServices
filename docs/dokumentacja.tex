@@ -1,0 +1,1355 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[polish]{babel}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{tcolorbox}
+\usepackage{lmodern}
+\usepackage{lastpage}
+\usepackage{datetime}
+\usepackage{titlesec}
+\usepackage{changepage}
+\usepackage[hidelinks]{hyperref}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{url}
+\usepackage{breakurl}
+\usepackage{seqsplit}
+\usepackage{adjustbox}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{listingsutf8}
+\lstset{inputencoding=utf8/latin2}
+
+\geometry{margin=2.5cm}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{NFC SERVICES}
+\fancyhead[R]{2025-07-08}
+\fancyfoot[R]{\textbf{Strona \thepage\ z \pageref{LastPage}}}
+
+% Konfiguracja dla długich linii kodu
+\lstset{
+    breaklines=true,
+    breakatwhitespace=true,
+    basicstyle=\footnotesize\ttfamily,
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny,
+    stepnumber=1,
+    numbersep=5pt,
+    tabsize=2,
+    showstringspaces=false,
+    showtabs=false,
+    captionpos=b,
+    xleftmargin=2em,
+    framexleftmargin=1.5em
+}
+
+\begin{document}
+\vspace*{1cm}
+
+\begin{center}
+\begin{tcolorbox}[width=0.8\textwidth, sharp corners, boxrule=0.5pt]
+    \centering
+    \textbf{\Large Dokumentacja Techniczna \\ NFC Services} \\[1.5em]
+    \textbf{Wersja:} 1.0 \\
+    \textbf{Release:} A \\[1.5em]
+    \textbf{Autor:} Michał Itrych \\[1.5em]
+    \textbf{Data publikacji:} 08-07-2025
+\end{tcolorbox}
+\end{center}
+
+\newpage
+\tableofcontents
+\newpage
+
+\section{Wprowadzenie i przegląd systemu}
+
+\subsection{Cel dokumentacji}
+Niniejsza dokumentacja techniczna opisuje implementację systemu NFC Services dla aplikacji Flutter, umożliwiającego komunikację z kartami MIFARE DESFire i MIFARE Plus SL3.
+
+\subsection{Architektura systemu}
+System NFC Services składa się z następujących głównych komponentów:
+
+\begin{itemize}
+    \item \textbf{DesfireNfcServices} -- klasa obsługująca operacje na kartach MIFARE DESFire
+    \item \textbf{PlusNfcServices} -- klasa obsługująca operacje na kartach MIFARE Plus SL3
+    \item \textbf{Shared utilities} -- narzędzia do kryptografii, NFC oraz konwersji (ASCII, hex, bin).
+\end{itemize}
+
+\subsection{Wspierane typy kart}
+System obsługuje następujące typy kart NFC:
+\begin{itemize}
+    \item \textbf{MIFARE DESFire} -- karty z zaawansowanymi funkcjami kryptograficznymi
+    \item \textbf{MIFARE Plus SL3} -- karty z dodatkowymi mechanizmami bezpieczeństwa
+\end{itemize}
+
+\newpage
+
+\subsection{Struktura katalogów}
+\begin{lstlisting}[language=bash]
+lib/
+  nfc_services/
+    desfire_services.dart
+    plus_services.dart
+    shared/
+      crypto_utilities.dart
+      nfc_utilities.dart
+      binary_conversion.dart
+\end{lstlisting}
+
+\textbf{Opis plików:}
+\begin{itemize}
+    \item \texttt{desfire\_services.dart} -- Obsługa kart DESFire
+    \item \texttt{plus\_services.dart} -- Obsługa kart MIFARE Plus
+    \item \texttt{crypto\_utilities.dart} -- Narzędzia kryptograficzne
+    \item \texttt{nfc\_utilities.dart} -- Podstawowe operacje NFC
+    \item \texttt{binary\_conversion.dart} -- Konwersje binarne
+    \item \texttt{desfire\_screen.dart} -- Przykład użycia DESFire
+    \item \texttt{plus\_screen.dart} -- Przykład użycia MIFARE Plus
+\end{itemize}
+
+\subsection{Zależności zewnętrzne}
+System korzysta z następujących bibliotek:
+
+\begin{itemize}
+    \item \texttt{flutter\_nfc\_kit} – do podstawowej komunikacji NFC,
+    \item \texttt{convert} – do konwersji danych (np. między formatami hex, binarnym i ASCII),
+    \item \texttt{encrypt} – do podstawowych operacji kryptograficznych,
+    \item \texttt{pointycastle} – do zaawansowanych funkcji kryptograficznych.
+\end{itemize}
+
+Aby skorzystać z tych bibliotek, należy dodać je do pliku \texttt{pubspec.yaml}:
+
+\begin{lstlisting}[language=bash]
+dependencies:
+  flutter_nfc_kit: ^3.3.1
+  convert: ^3.0.1
+  encrypt: ^5.0.1
+  pointycastle: ^3.9.1
+\end{lstlisting}
+
+
+\subsection{Obsługiwane platformy}
+System jest kompatybilny z:
+\begin{itemize}
+    \item \textbf{Android} -- SDK 26+ (Android 8.0+)
+    \item \textbf{iOS} -- iOS 14.6+
+\end{itemize}
+
+\newpage
+
+\section{Instalacja i konfiguracja}
+
+\subsection{Wymagania systemowe}
+
+\subsubsection{Wymagania sprzętowe}
+\begin{itemize}
+    \item \textbf{Urządzenie z NFC} -- telefon lub tablet z wbudowanym modułem NFC
+    \item \textbf{Android} -- urządzenie z Android 8.0 (API 26) lub nowszym
+    \item \textbf{iOS} -- iPhone z iOS 14.6 lub nowszym (iPhone 7 i nowsze)
+\end{itemize}
+
+\subsubsection{Wymagania programowe}
+\begin{itemize}
+    \item \textbf{Flutter SDK} -- wersja 3.7.2 lub nowsza
+    \item \textbf{Dart SDK} -- wersja 3.0.0 lub nowsza
+    \item \textbf{Android Studio} -- wersja 2022.1 lub nowsza (dla rozwoju Android)
+    \item \textbf{Xcode} -- wersja 14.0 lub nowsza (dla rozwoju iOS)
+    \item \textbf{Gradle} -- wersja 7.0 lub nowsza (dla Android)
+\end{itemize}
+
+\subsubsection{Wymagania dotyczące NFC}
+\begin{itemize}
+    \item \textbf{Standard NFC} -- urządzenie musi obsługiwać standard ISO/IEC 14443
+    \item \textbf{Tryb czytnika} -- urządzenie musi obsługiwać tryb czytnika NFC
+\end{itemize}
+
+\subsection{Instalacja pakietu}
+
+\subsubsection{Dodawanie zależności}
+Aby zainstalować NFC Services w projekcie Flutter, dodaj następujące zależności do pliku \texttt{pubspec.yaml}:
+
+\begin{lstlisting}
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # NFC Services dependencies
+  flutter_nfc_kit: ^3.3.1
+  convert: ^3.0.1
+  encrypt: ^5.0.1
+  pointycastle: ^3.9.1
+  
+  # Additional dependencies for your app
+  cupertino_icons: ^1.0.2
+\end{lstlisting}
+
+\subsubsection{Instalacja zależności}
+Po dodaniu zależności, uruchom następujące komendy w terminalu:
+
+\begin{lstlisting}[language=bash]
+flutter pub get
+
+flutter doctor
+
+flutter run
+\end{lstlisting}
+
+\subsection{Konfiguracja uprawnień}
+
+\subsubsection{Konfiguracja iOS}
+Dodaj następujące klucze do pliku \texttt{ios/Runner/Info.plist}:
+
+\begin{lstlisting}[language=xml]
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Other keys... -->
+    
+    <key>NFCReaderUsageDescription</key>
+	<string>NFC capabilities to function properly.</string>
+</dict>
+</plist>
+\end{lstlisting}
+
+Dodaj również następujące klucze do pliku \texttt{ios/Runner/Runner.entitlements}:
+
+\begin{lstlisting}[language=xml]
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.nfc.readersession.formats</key>
+	<array>
+		<string>TAG</string>
+	</array>
+</dict>
+</plist>
+\end{lstlisting}
+
+\newpage
+
+\subsection{Weryfikacja instalacji}
+
+\subsubsection{Sprawdzenie dostępności NFC}
+Aby sprawdzić czy NFC jest poprawnie skonfigurowane, użyj następującego kodu:
+
+\begin{lstlisting}
+import 'package:flutter_nfc_kit/flutter_nfc_kit.dart';
+
+Future<void> checkNfcAvailability() async {
+  try {
+    final availability = await FlutterNfcKit.nfcAvailability;
+    
+    switch (availability) {
+      case NFCAvailability.available:
+        print('NFC is available and ready to use');
+        break;
+      case NFCAvailability.disabled:
+        print('NFC is disabled - please enable in device settings');
+        break;
+      case NFCAvailability.not_supported:
+        print('NFC is not supported on this device');
+        break;
+    }
+  } catch (e) {
+    print('Error checking NFC availability: $e');
+  }
+}
+\end{lstlisting}
+
+\newpage
+
+\subsubsection{Test podstawowej funkcjonalności}
+Utwórz prosty test aby sprawdzić czy wszystko działa:
+
+\begin{lstlisting}
+import 'package:flutter/material.dart';
+import 'nfc_services/desfire_services.dart';
+
+class NfcTestScreen extends StatefulWidget {
+  @override
+  _NfcTestScreenState createState() => _NfcTestScreenState();
+}
+
+class _NfcTestScreenState extends State<NfcTestScreen> {
+  String _testResult = '';
+
+  Future<void> _testNfcConnection() async {
+    try {
+      final desfire = DesfireNfcServices(debugMode: true);
+      
+      setState(() {
+        _testResult = 'Testing NFC connection...';
+      });
+      
+      // Test basic NFC availability
+      final result = await desfire.readDesfire(
+        'F40001', // Application ID
+        '00',     // File ID
+        '00',     // Key Number
+        '00000000000000000000000000000000', // Auth Key
+      );
+      
+      setState(() {
+        if (result.isSuccess) {
+          _testResult = 'NFC test successful! Data: ${result.data}';
+        } else {
+          _testResult = 'NFC test failed: ${result.errorCode?.description}';
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _testResult = 'Error during NFC test: $e';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('NFC Test')),
+      body: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            ElevatedButton(
+              onPressed: _testNfcConnection,
+              child: Text('Test NFC Connection'),
+            ),
+            SizedBox(height: 16),
+            Text(_testResult),
+          ],
+        ),
+      ),
+    );
+  }
+}
+\end{lstlisting}
+
+\subsection{Rozwiązywanie problemów z instalacją}
+
+\subsubsection{Typowe problemy Android}
+\begin{itemize}
+    \item \textbf{Problem:} "NFC not available" na urządzeniu z NFC
+    \begin{itemize}
+        \item \textbf{Rozwiązanie:} Sprawdź czy NFC jest włączone w ustawieniach urządzenia
+        \item \textbf{Rozwiązanie:} Upewnij się że aplikacja ma uprawnienia do NFC
+    \end{itemize}
+    
+    \item \textbf{Problem:} "Gradle build failed"
+    \begin{itemize}
+        \item \textbf{Rozwiązanie:} Sprawdź czy wszystkie zależności są poprawnie dodane
+        \item \textbf{Rozwiązanie:} Wykonaj \texttt{flutter clean} i \texttt{flutter pub get}
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{Typowe problemy iOS}
+\begin{itemize}
+    \item \textbf{Problem:} "NFC not supported" na iPhone
+    \begin{itemize}
+        \item \textbf{Rozwiązanie:} Upewnij się że używasz iPhone 7 lub nowszego
+        \item \textbf{Rozwiązanie:} Sprawdź czy iOS jest w wersji 14.6+
+    \end{itemize}
+    
+    \item \textbf{Problem:} "NFCReaderUsageDescription missing"
+    \begin{itemize}
+        \item \textbf{Rozwiązanie:} Dodaj opis użycia NFC do Info.plist
+        \item \textbf{Rozwiązanie:} Upewnij się że klucz jest poprawnie sformatowany
+    \end{itemize}
+    
+    \item \textbf{Problem:} "Entitlements error"
+    \begin{itemize}
+        \item \textbf{Rozwiązanie:} Sprawdź czy plik Runner.entitlements jest poprawnie skonfigurowany
+        \item \textbf{Rozwiązanie:} Upewnij się że masz odpowiednie certyfikaty deweloperskie
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{Problem z zależnościami}
+\begin{itemize}
+    \item \textbf{Problem:} Konflikty wersji bibliotek
+    \begin{itemize}
+        \item \textbf{Rozwiązanie:} Użyj \texttt{flutter pub deps} aby sprawdzić zależności
+        \item \textbf{Rozwiązanie:} Zaktualizuj Flutter do najnowszej wersji
+    \end{itemize}
+    
+    \item \textbf{Problem:} "Package not found"
+    \begin{itemize}
+        \item \textbf{Rozwiązanie:} Sprawdź czy pubspec.yaml jest poprawnie sformatowany
+        \item \textbf{Rozwiązanie:} Wykonaj \texttt{flutter pub cache repair}
+    \end{itemize}
+\end{itemize}
+
+\section{Architektura i główne komponenty}
+
+\subsection{Przegląd architektury}
+System NFC Services ma modułową strukturę – jest podzielony na warstwę komunikacji z kartą, warstwę narzędzi kryptograficznych oraz warstwę prezentacji (np. przykładowe ekrany).
+
+\subsection{Główne komponenty}
+
+\begin{itemize}
+    \item \textbf{DesfireNfcServices} – klasa odpowiedzialna za obsługę kart MIFARE DESFire, w tym autentykację, odczyt plików, obsługę błędów oraz logowanie.
+    
+    \item \textbf{PlusNfcServices} – klasa odpowiedzialna za obsługę kart MIFARE Plus SL3 (działa analogicznie do \texttt{DesfireNfcServices}, lecz oparta jest na innym protokole).
+    
+    \item \textbf{Narzędzia współdzielone (\texttt{shared/})} – zestaw narzędzi wykorzystywanych przez oba powyższe serwisy:
+    \begin{itemize}
+        \item \texttt{crypto\_utilities.dart} – funkcje kryptograficzne, m.in. szyfrowanie AES, generowanie liczb losowych, obliczanie CMAC oraz operacje na bajtach,
+        \item \texttt{nfc\_utilities.dart} – funkcje wspomagające obsługę sesji NFC, takie jak sprawdzanie dostępności, wykrywanie kart, wysyłanie komend oraz obsługa błędów,
+        \item \texttt{binary\_conversion.dart} – funkcje pomocnicze do konwersji danych binarnych i szesnastkowych (hex).
+    \end{itemize}
+    
+\end{itemize}
+
+\subsection{Schemat zależności}
+\begin{itemize}
+    \item \texttt{desfire\_services.dart} oraz \texttt{plus\_services.dart} korzystają z narzędzi z katalogu \texttt{shared/}.
+    \item Wszystkie operacje NFC bazują na bibliotece \texttt{flutter\_nfc\_kit}.
+\end{itemize}
+
+\section{Moduł \texttt{DesfireNfcServices}}
+
+\subsection{Opis klasy}
+\texttt{DesfireNfcServices} to główna klasa odpowiedzialna za obsługę kart MIFARE DESFire. Realizuje pełny cykl komunikacji: od sprawdzenia dostępności NFC, przez wybór aplikacji i autentykację, aż po odczyt danych, obsługę błędów oraz generowanie logów.
+
+\subsection{System obsługi wyników}
+Każda metoda asynchroniczna zwraca wynik jako obiekt, który pochodzi z klasy \texttt{DesfireResult<T>}
+
+\begin{itemize}
+    \item \texttt{DesfireSuccess<T>} -- sukces operacji:
+    \begin{itemize}
+        \item \texttt{data} -- wynik operacji typu \texttt{T}
+        \item \texttt{isSuccess} -- zawsze \texttt{true}
+        \item \texttt{errorCode} -- zawsze \texttt{null}
+        \item \texttt{message} -- zawsze \texttt{null}
+        \item \texttt{exception} -- zawsze \texttt{null}
+    \end{itemize}
+    \item \texttt{DesfireError<T>} -- błąd operacji:
+    \begin{itemize}
+        \item \texttt{data} -- zawsze \texttt{null}
+        \item \texttt{isSuccess} -- zawsze \texttt{false}
+        \item \texttt{errorCode} -- kod błędu typu \texttt{DesfireErrorCode}
+        \item \texttt{message} -- opcjonalny opis błędu (\texttt{String?})
+        \item \texttt{exception} -- opcjonalny wyjątek (\texttt{Exception?})
+    \end{itemize}
+\end{itemize}
+
+\textbf{Wspólne właściwości:}
+\begin{itemize}
+    \item \texttt{isSuccess} -- \texttt{bool} określający czy operacja zakończyła się sukcesem
+    \item \texttt{data} -- wynik operacji lub \texttt{null} w przypadku błędu
+    \item \texttt{errorCode} -- kod błędu lub \texttt{null} w przypadku sukcesu
+    \item \texttt{message} -- opis błędu lub \texttt{null} w przypadku sukcesu
+    \item \texttt{exception} -- wyjątek lub \texttt{null} w przypadku sukcesu
+\end{itemize}
+
+\newpage
+
+\subsection{Typy wyników operacji}
+System NFC Services wykorzystuje wzorzec \textbf{obsługi wyników} do spójnego zarządzania sukcesami i błędami operacji:
+
+\subsubsection*{Struktura wyników}
+\begin{lstlisting}[language=Java]
+// Sukces
+DesfireSuccess<String>(
+  data: "48656C6C6F20576F726C642100000000"
+)
+
+// Blad
+DesfireError<String>(
+  error: DesfireErrorCode.authenticationFailed,
+  message: "Authentication failed - check your key"
+)
+\end{lstlisting}
+
+\subsubsection*{Sprawdzanie typu wyniku}
+\begin{lstlisting}[language=Java]
+final result = await desfire.readDesfire(...);
+
+// Metoda 1:
+if (result.isSuccess) {
+    final data = result.data!; // Data is available
+    print('Read data: $data');
+} else {
+    final error = result.errorCode!; // Error code is available
+    print('Error: ${error.description}');
+}
+
+// Metoda 2:
+switch (result) {
+    case DesfireSuccess(data: final data):
+        print('Read data: $data');
+    case DesfireError(error: final error, message: final message):
+        print('Error: ${error.description}');
+        if (message != null) print('Details: $message');
+}
+
+// Metoda 3:
+if (!result.isSuccess) {
+    final error = result.errorCode!; // Error code is available
+    print('Error: ${error.description}');
+} else {
+    final data = result.data!; // Data is available
+    print('Read data: $data');
+}
+\end{lstlisting}
+
+\newpage
+
+\subsubsection*{Właściwości dostępne dla wszystkich wyników}
+\begin{itemize}
+    \item \texttt{isSuccess} -- \texttt{bool} - czy operacja się powiodła
+    \item \texttt{data} -- \texttt{T?} - dane wyniku (null dla błędów)
+    \item \texttt{errorCode} -- \texttt{DesfireErrorCode?} - kod błędu (null dla sukcesów)
+\end{itemize}
+
+\subsection{Konstruktor}
+\begin{lstlisting}[language=Java]
+DesfireNfcServices({
+  bool debugMode = false, 
+  int timeout = 7, 
+  String alertMessage, 
+  String multipleTagMessage
+})
+\end{lstlisting}
+
+\textbf{Parametry:}
+    \begin{itemize}
+        \item \texttt{debugMode} (\texttt{bool}) -- włącza generowanie logów
+        \item \texttt{timeout} (\texttt{int}) -- timeout operacji NFC (sekundy)
+        \item \texttt{alertMessage} (\texttt{String}) -- komunikat podczas skanowania (tylko iOS)
+        \item \texttt{multipleTagMessage} (\texttt{String}) -- komunikat przy wielu tagach (tylko iOS)
+\end{itemize}
+
+\subsection{Metody publiczne}
+\begin{lstlisting}[language=Java]
+Future<DesfireResult<String>> readDesfire(
+  String applicationId, 
+  String fileId, 
+  String keyNumber, 
+  String authKey
+)
+\end{lstlisting}
+
+\textbf{Parametry:}
+    \begin{itemize}
+        \item \texttt{applicationId} (\texttt{String}) -- identyfikator aplikacji (6 znaków hex)
+        \item \texttt{fileId} (\texttt{String}) -- identyfikator pliku (0-31)
+        \item \texttt{keyNumber} (\texttt{String}) -- numer klucza (0-13)
+        \item \texttt{authKey} (\texttt{String}) -- klucz autentykacji (32 znaki hex)
+    \end{itemize}
+
+\subsection{Typy pomocnicze}
+\begin{itemize}
+    \item \texttt{DesfireAuthResult} -- wynik autentykacji (kody, losowe liczby, klucz sesji)
+    \item \texttt{DesfireFileSettings} -- ustawienia pliku (typ, tryb komunikacji, prawa dostępu)
+    \item \texttt{DesfireFirstAuthResult} -- wynik pierwszego etapu autentykacji (RandomB)
+\end{itemize}
+
+\subsection{Metody prywatne}
+
+\subsubsection*{Walidacja i obsługa błędów}
+\begin{itemize}
+    \item \texttt{DesfireErrorCode \_validateDesfireReadParameters(...)}\\
+    Weryfikuje poprawność parametrów wejściowych (np. długość, format hex)
+    
+    \item \texttt{String \_getDesfireErrorMessage(String code)}\\
+    Mapuje kod błędu na czytelny opis tekstowy
+    
+    \item \texttt{void \_validateCardResponse(...)}\\
+    Sprawdza poprawność odpowiedzi karty (np. długość, status)
+    
+    \item \texttt{void \_log(String message, \{String level = 'INFO'\})}\\
+    Loguje komunikaty (aktywne tylko w trybie \texttt{debugMode})
+\end{itemize}
+
+\subsubsection*{Operacje na karcie}
+\begin{itemize}
+    \item \texttt{Future<DesfireResult<void>> \_selectApplication(String applicationId)}\\
+    Wysyła komendę wyboru aplikacji do karty
+    
+    \item \texttt{Future<DesfireResult<DesfireFileSettings>> \_getFileSettings(String fileId)}\\
+    Pobiera ustawienia pliku (typ, prawa dostępu, tryb komunikacji)
+    
+    \item \texttt{Future<DesfireResult<String>> \_readEncryptedData(...)}\\
+    Odczyt i deszyfracja danych z pliku
+    
+    \item \texttt{Future<String> \_decryptFileData(...)}\\
+    Deszyfruje blok danych z pliku na podstawie klucza sesji i CMAC
+\end{itemize}
+
+\subsubsection*{Autentykacja}
+\begin{itemize}
+    \item \texttt{Future<DesfireResult<DesfireFirstAuthResult>> \_processFirstAuthStep(...)}\\
+    Pierwszy etap autentykacji (pobranie i deszyfracja RandomB)
+    
+    \item \texttt{Future<DesfireResult<DesfireAuthResult>> \_processSecondAuthStep(...)}\\
+    Drugi etap autentykacji (RandomA, sesja, weryfikacja)
+    
+    \item \texttt{Future<DesfireResult<DesfireAuthResult>> \_authenticateWithApplication(...)}\\
+    Pełna autentykacja z obsługą retry
+    
+    \item \texttt{bool \_verifyRotatedRandomA(Uint8List received, Uint8List expected)}\\
+    Porównuje wartości RandomA w sposób odporny na ataki czasowe
+    
+    \item \texttt{Uint8List \_generateSessionKey(Uint8List randomA, Uint8List randomB)}\\
+    Generuje klucz sesji na podstawie RandomA i RandomB
+    
+    \item \texttt{String \_to3ByteLEHex(int value)}\\
+    Zamienia liczbę na 3-bajtowy little-endian hex (do parametrów komend)
+\end{itemize}
+
+\newpage
+
+\subsection{Obsługa błędów}
+Każda metoda zwraca szczegółowy kod błędu (\texttt{DesfireErrorCode}) oraz opcjonalny opis i wyjątek.
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|l|l|p{6cm}|}
+\hline
+\textbf{Kod błędu} & \textbf{Kod} & \textbf{Opis} \\
+\hline
+\texttt{success} & 00 & Operacja zakończona sukcesem \\
+\hline
+\texttt{invalidApplicationId} & DAID & Nieprawidłowy identyfikator aplikacji (musi być 6 znaków hex) \\
+\hline
+\texttt{invalidFileId} & DFID & Nieprawidłowy identyfikator pliku \\
+\hline
+\texttt{invalidKeyNumber} & DKN & Nieprawidłowy numer klucza \\
+\hline
+\texttt{invalidAuthKey} & DAK & Nieprawidłowy klucz autentykacji (musi być 32 znaki hex) \\
+\hline
+\texttt{timeoutError} & DT & Przekroczono limit czasu operacji \\
+\hline
+\texttt{nfcUnavailable} & DN & NFC nie jest dostępne \\
+\hline
+\texttt{sessionError} & DSN & Błąd sesji NFC \\
+\hline
+\texttt{unexpectedState} & DU & Nieoczekiwany stan aplikacji \\
+\hline
+\texttt{userCancelled} & DUC & Użytkownik anulował operację \\
+\hline
+\texttt{cardError} & CARD & Błąd karty \\
+\hline
+\texttt{authenticationFailed} & DAF & Błąd autentykacji \\
+\hline
+\texttt{sessionKeyError} & DSE & Błąd generowania klucza sesji \\
+\hline
+\texttt{cmacError} & DCM & Błąd obliczania CMAC \\
+\hline
+\texttt{dataDecryptionError} & DDD & Błąd deszyfracji danych \\
+\hline
+\texttt{invalidResponse} & DIR & Nieprawidłowa odpowiedź karty \\
+\hline
+\texttt{cardConnectionLost} & DCCL & Utracono połączenie z kartą - trzymaj kartę stabilnie \\
+\hline
+\texttt{communicationError} & DCE & Błąd komunikacji z kartą \\
+\hline
+\texttt{applicationNotFound} & DANF & Nie znaleziono aplikacji \\
+\hline
+\texttt{fileNotFound} & DFNF & Nie znaleziono pliku \\
+\hline
+\texttt{permissionDenied} & DPD & Odmowa dostępu \\
+\hline
+\texttt{conditionsNotSatisfied} & DCNS & Warunki użycia nie spełnione - kod polecenia niedostępny w obecnym stanie karty \\
+\hline
+\texttt{unknownError} & UE & Nieznany błąd. Spróbuj ponownie \\
+\hline
+\end{tabular}
+\caption{Kody błędów \texttt{DesfireErrorCode} i ich znaczenie}
+\end{table}
+
+\clearpage
+
+\newpage
+
+\subsection{Przykład użycia}
+\begin{lstlisting}[language=Java]
+final desfire = DesfireNfcServices(debugMode: true);
+final result = await desfire.readDesfire(
+  'A1B2C3',
+  '01',
+  '00',
+  '0123456789ABCDEF0123456789ABCDEF',
+);
+
+if (result.isSuccess) {
+  print('Block data: ${result.data}');
+  print('Operation successful: ${result.isSuccess}');
+} else {
+  print('Error code: ${result.errorCode}');
+  print('Error message: ${result.message}');
+  if (result.exception != null) {
+    print('Exception: ${result.exception}');
+  }
+}
+\end{lstlisting}
+
+\subsection{Co może zwrócić \texttt{readDesfire}}
+
+Metoda \texttt{readDesfire} zwraca obiekt typu \texttt{DesfireResult<String>}, który może być jednym z dwóch typów:
+
+\subsubsection*{DesfireSuccess<String> - Sukces operacji}
+\begin{itemize}
+    \item \texttt{isSuccess} = \texttt{true}
+    \item \texttt{data} = \texttt{String} - odczytane dane z pliku w formacie hex
+    \item \texttt{errorCode} = \texttt{null}
+    \item \texttt{message} = \texttt{null}
+    \item \texttt{exception} = \texttt{null}
+\end{itemize}
+
+\textbf{Przykład sukcesu:}
+\begin{lstlisting}[language=Java]
+DesfireSuccess<String>(
+  data: "48656C6C6F20576F726C642100000000" // "Hello World!" in hex
+)
+\end{lstlisting}
+
+\newpage
+
+\subsubsection*{DesfireError<String> - Błąd operacji}
+\begin{itemize}
+    \item \texttt{isSuccess} = \texttt{false}
+    \item \texttt{data} = \texttt{null}
+    \item \texttt{errorCode} = \texttt{DesfireErrorCode} - kod błędu
+    \item \texttt{message} = \texttt{String?} - opcjonalny opis błędu
+    \item \texttt{exception} = \texttt{Object?} - opcjonalny wyjątek
+\end{itemize}
+
+\textbf{Przykłady błędów:}
+\begin{lstlisting}[language=Java]
+// Blad: walidacja parametrow
+DesfireError<String>(
+  error: DesfireErrorCode.invalidApplicationId,
+  message: "Invalid application ID (must be 6 hex characters)"
+)
+
+// Blad: NFC nie dostepne
+DesfireError<String>(
+  error: DesfireErrorCode.nfcUnavailable,
+  message: "Please enable NFC in your device settings"
+)
+
+// Blad: autentykacja nie powiodla sie
+DesfireError<String>(
+  error: DesfireErrorCode.authenticationFailed,
+  message: "Authentication failed - check your key"
+)
+
+// Blad : nieznany blad z wyjatkiem
+DesfireError<String>(
+  error: DesfireErrorCode.cardConnectionLost,
+  message: "Card connection lost - please keep card steady"
+)
+
+// Blad: nieznany blad z wyjatkiem
+DesfireError<String>(
+  error: DesfireErrorCode.unknownError,
+  message: "Unknown error. Try again",
+  exception: TimeoutException("Operation timed out")
+)
+\end{lstlisting}
+
+\newpage
+
+\subsubsection*{Format zwracanych danych}
+W przypadku sukcesu, \texttt{data} zawiera:
+\begin{itemize}
+    \item \textbf{Format:} String w formacie hex (32 znaki = 16 bajtów)
+    \item \textbf{Przykład:} \texttt{"48656C6C6F20576F726C642100000000"}
+    \item \textbf{Deszyfracja:} Dane są automatycznie deszyfrowane przed zwróceniem
+    \item \textbf{Encoding:} Dane są w formacie little-endian zgodnie ze standardem DESFire
+\end{itemize}
+
+\subsubsection*{Obsługa błędów w aplikacji}
+\begin{lstlisting}[language=Java]
+final result = await desfire.readDesfire(appId, fileId, keyNum, authKey);
+
+if (result.isSuccess) {
+    // Sukces
+    final blockData = result.data!;
+    print('Read data: $blockData');
+} else {
+    // Blad
+    final errorCode = result.errorCode!;
+    final errorMessage = result.message;
+    
+    switch (errorCode) {
+        case DesfireErrorCode.nfcUnavailable:
+            showDialog('Enable NFC in device settings');
+            break;
+        case DesfireErrorCode.cardConnectionLost:
+            showDialog('Keep the card steady near the phone');
+            break;
+        case DesfireErrorCode.authenticationFailed:
+            showDialog('Invalid authentication key');
+            break;
+        default:
+            showDialog('Error: ${errorMessage ?? errorCode.description}');
+    }
+}
+\end{lstlisting}
+
+\newpage
+
+\section{Moduł \texttt{PlusNfcServices}}
+
+\subsection{Opis klasy}
+\texttt{PlusServices} to główna klasa odpowiedzialna za obsługę kart MIFARE Plus SL3. Klasa ta implementuje kompletny protokół uwierzytelniania i odczytu danych z kart MIFARE Plus, wykorzystując mechanizmy kryptograficzne AES128.
+
+
+\subsection{System obsługi wyników}
+Każda metoda asynchroniczna zwraca wynik jako obiekt, który pochodzi z klasy \texttt{PlusResult<T>}:
+
+\begin{itemize}
+    \item \texttt{PlusSuccess<T>} -- sukces operacji:
+    \begin{itemize}
+        \item \texttt{data} -- wynik operacji typu \texttt{T}
+        \item \texttt{isSuccess} -- zawsze \texttt{true}
+        \item \texttt{errorCode} -- zawsze \texttt{null}
+        \item \texttt{message} -- zawsze \texttt{null}
+        \item \texttt{exception} -- zawsze \texttt{null}
+    \end{itemize}
+    \item \texttt{PlusError<T>} -- błąd operacji:
+    \begin{itemize}
+        \item \texttt{data} -- zawsze \texttt{null}
+        \item \texttt{isSuccess} -- zawsze \texttt{false}
+        \item \texttt{errorCode} -- kod błędu typu \texttt{PlusErrorCode}
+        \item \texttt{message} -- opcjonalny opis błędu (\texttt{String?})
+        \item \texttt{exception} -- opcjonalny wyjątek (\texttt{Object?})
+    \end{itemize}
+\end{itemize}
+
+\textbf{Wspólne właściwości:}
+\begin{itemize}
+    \item \texttt{isSuccess} -- \texttt{bool} określający czy operacja zakończyła się sukcesem
+    \item \texttt{data} -- wynik operacji lub \texttt{null} w przypadku błędu
+    \item \texttt{errorCode} -- kod błędu lub \texttt{null} w przypadku sukcesu
+    \item \texttt{message} -- opis błędu lub \texttt{null} w przypadku sukcesu
+    \item \texttt{exception} -- wyjątek lub \texttt{null} w przypadku sukcesu
+\end{itemize}
+
+\newpage
+
+\subsection{Typy wyników operacji}
+System NFC Services wykorzystuje wzorzec \textbf{obsługi wyników} do spójnego zarządzania sukcesami i błędami operacji:
+
+\subsubsection*{Struktura wyników}
+\begin{lstlisting}[language=Java]
+// Sukces
+PlusSuccess<String>(
+  data: "48656C6C6F20576F726C642100000000"
+)
+
+// Blad
+PlusError<String>(
+  error: PlusErrorCode.authenticationFailed,
+  message: "Authentication failed - check your key"
+)
+\end{lstlisting}
+
+\subsubsection*{Sprawdzanie typu wyniku}
+\begin{lstlisting}[language=Java]
+final result = await plus.readPlus(...);
+
+if (result.isSuccess) {
+    final data = result.data!;
+    print('Read data: $data');
+} else {
+    final error = result.errorCode!;
+    print('Error: ${error.description}');
+}
+
+if (!result.isSuccess) {
+    final error = result.errorCode!;
+    print('Error: ${error.description}');
+} else {
+    final data = result.data!;
+    print('Read data: $data');
+}
+\end{lstlisting}
+
+\subsubsection*{Właściwości dostępne dla wszystkich wyników}
+\begin{itemize}
+    \item \texttt{isSuccess} -- \texttt{bool} - czy operacja się powiodła
+    \item \texttt{data} -- \texttt{T?} - dane wyniku (null dla błędów)
+    \item \texttt{errorCode} -- \texttt{PlusErrorCode?} - kod błędu (null dla sukcesów)
+\end{itemize}
+
+\newpage
+
+\subsection{Konstruktor}
+\begin{lstlisting}[language=Java]
+PlusServices({
+  bool debugMode = false, 
+  int timeout = 10, 
+  String alertMessage, 
+  String multipleTagMessage
+})
+\end{lstlisting}
+
+\textbf{Parametry:}
+\begin{itemize}
+    \item \texttt{debugMode} (\texttt{bool}) -- włącza szczegółowe logowanie
+    \item \texttt{timeout} (\texttt{int}) -- timeout operacji NFC (sekundy)
+    \item \texttt{alertMessage} (\texttt{String}) -- komunikat podczas skanowania (tylko iOS)
+    \item \texttt{multipleTagMessage} (\texttt{String}) -- komunikat przy wielu tagach (tylko iOS)
+\end{itemize}
+
+\subsection{Metody publiczne}
+\begin{lstlisting}[language=Java]
+Future<PlusResult<String>> readPlus(
+  int sector,
+  int block,
+  String keyType,
+  String keyHex, {
+  bool isPlaintext = true,
+  bool requiresMacOnResponse = false,
+})
+\end{lstlisting}
+
+\textbf{Parametry:}
+\begin{itemize}
+    \item \texttt{sector} (\texttt{int}) -- numer sektora (1-39)
+    \item \texttt{block} (\texttt{int}) -- numer bloku (0-14)
+    \item \texttt{keyType} (\texttt{String}) -- typ klucza ("Key A" lub "Key B")
+    \item \texttt{keyHex} (\texttt{String}) -- klucz AES w formacie hex (32 znaki)
+    \item \texttt{isPlaintext} (\texttt{bool}) -- czy odczytywać w trybie plaintext
+    \item \texttt{requiresMacOnResponse} (\texttt{bool}) -- czy MAC jest wymagany w odpowiedzi
+\end{itemize}
+
+\subsection{Typy pomocnicze}
+\begin{itemize}
+    \item \texttt{PlusAuthResult} -- wynik autentykacji (kody, losowe liczby, transaction ID)
+    \item \texttt{PlusSessionKeys} -- klucze sesji (kenc, kmac)
+    \item \texttt{PlusReadResult} -- wynik odczytu bloku (kod, dane, opis)
+    \item \texttt{KeyType} -- typ klucza (keyA, keyB)
+\end{itemize}
+
+\subsection{Metody prywatne}
+
+\subsubsection*{Walidacja i obsługa błędów}
+\begin{itemize}
+    \item \texttt{PlusErrorCode \_validatePlusReadParameters(...)}\\
+    Waliduje poprawność parametrów wejściowych (sektor, blok, typ klucza, format hex)
+    
+    \item \texttt{String \_getNfcErrorMessage(String code)}\\
+    Mapuje kod błędu NFC na czytelny opis tekstowy
+    
+    \item \texttt{void \_log(String message, \{String level = 'INFO'\})}\\
+    Loguje komunikaty (aktywne tylko w trybie \texttt{debugMode})
+\end{itemize}
+
+\subsubsection*{Autentykacja}
+\begin{itemize}
+    \item \texttt{Future<PlusResult<Uint8List>> \_processFirstAuthStep(...)}\\
+    Pierwszy etap autentykacji (pobranie i deszyfracja RandomB)
+    
+    \item \texttt{Future<PlusResult<PlusAuthResult>> \_processSecondAuthStep(...)}\\
+    Drugi etap autentykacji (RandomA, sesja, weryfikacja)
+    
+    \item \texttt{Future<PlusResult<PlusAuthResult>> \_authenticateSector(...)}\\
+    Pełna autentykacja sektora z obsługą retry
+    
+    \item \texttt{PlusResult<PlusAuthResult> \_validateAuthResult(...)}\\
+    Walidacja wyniku autentykacji i wyodrębnienie transaction ID
+\end{itemize}
+
+\subsubsection*{Generowanie kluczy sesji}
+\begin{itemize}
+    \item \texttt{PlusResult<PlusSessionKeys> \_generateSessionKeys(...)}\\
+    Generuje klucze sesji (kenc, kmac) na podstawie danych autentykacji
+\end{itemize}
+
+\subsubsection*{Operacje na blokach}
+\begin{itemize}
+    \item \texttt{Future<PlusResult<PlusReadResult>> \_readBlockData(...)}\\
+    Odczytuje dane z bloku z obsługą CMAC
+    
+    \item \texttt{String \_decryptBlockData(...)}\\
+    Deszyfruje dane bloku przy użyciu kluczy sesji
+    
+    \item \texttt{String \_extractBlockData(...)}\\
+    Wyodrębnia dane konkretnego bloku z pełnej odpowiedzi
+\end{itemize}
+
+\subsubsection*{Generowanie komend}
+\begin{itemize}
+    \item \texttt{String \_generateAuthCommand(...)}\\
+    Generuje komendę autentykacji (70h)
+    
+    \item \texttt{String \_generateBlockReadCommandCode(...)}\\
+    Generuje kod komendy odczytu bloku (31h, 32h, 33h)
+    
+    \item \texttt{String \_generateBlockReadCommand(...)}\\
+    Generuje pełną komendę odczytu bloku
+    
+    \item \texttt{String \_calculateCmac(...)}\\
+    Oblicza CMAC dla autentykacji komendy
+\end{itemize}
+
+\subsection{Obsługa błędów}
+Każda metoda zwraca szczegółowy kod błędu (\texttt{PlusErrorCode}) oraz opcjonalny opis i wyjątek. Kody błędów są mapowane na czytelne komunikaty, co ułatwia diagnostykę i obsługę wyjątków w aplikacji.
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|l|l|p{6cm}|}
+\hline
+\textbf{Kod błędu} & \textbf{Kod} & \textbf{Opis} \\
+\hline
+\texttt{success} & 00 & Operacja zakończona sukcesem \\
+\hline
+\texttt{invalidSector} & PPS & Nieprawidłowy numer sektora (musi być 1-39) \\
+\hline
+\texttt{invalidBlock} & PPB & Nieprawidłowy numer bloku (musi być 0-14) \\
+\hline
+\texttt{invalidKeyType} & PPKT & Nieprawidłowy typ klucza \\
+\hline
+\texttt{invalidKeyHex} & PPK & Nieprawidłowy format klucza AES hex (musi być 32 znaki hex) \\
+\hline
+\texttt{timeoutError} & PPT & Przekroczono limit czasu operacji \\
+\hline
+\texttt{nfcUnavailable} & PPN & NFC nie jest dostępne \\
+\hline
+\texttt{sessionError} & PPSN & Błąd sesji NFC \\
+\hline
+\texttt{unexpectedState} & PPU & Nieoczekiwany stan aplikacji \\
+\hline
+\texttt{userCancelled} & PPUC & Użytkownik anulował operację \\
+\hline
+\texttt{cardError} & CARD & Błąd karty \\
+\hline
+\texttt{authenticationFailed} & PPAF & Błąd autentykacji \\
+\hline
+\texttt{sessionKeyError} & PPSE & Błąd generowania klucza sesji \\
+\hline
+\texttt{cmacError} & PPCM & Błąd obliczania CMAC \\
+\hline
+\texttt{dataDecryptionError} & PPDD & Błąd deszyfracji danych \\
+\hline
+\texttt{invalidResponse} & PPIR & Nieprawidłowa odpowiedź karty \\
+\hline
+\texttt{cardConnectionLost} & PCCL & Utracono połączenie z kartą - trzymaj kartę stabilnie \\
+\hline
+\texttt{communicationError} & PCE & Błąd komunikacji z kartą \\
+\hline
+\texttt{unknownError} & UE & Nieznany błąd. Spróbuj ponownie \\
+\hline
+\end{tabular}
+\caption{Kody błędów \texttt{PlusErrorCode} i ich znaczenie}
+\end{table}
+
+\newpage
+
+\subsection{Przykład użycia}
+\begin{lstlisting}[language=Java]
+final plus = PlusServices(debugMode: true);
+final result = await plus.readPlus(
+  1,
+  0,
+  "Key A",
+  "0123456789ABCDEF0123456789ABCDEF",
+  isPlaintext: true,
+  requiresMacOnResponse: false,
+);
+
+if (result.isSuccess) {
+  print('Block data: ${result.data}');
+  print('Operation successful: ${result.isSuccess}');
+} else {
+  print('Error code: ${result.errorCode}');
+  print('Error message: ${result.message}');
+  if (result.exception != null) {
+    print('Exception: ${result.exception}');
+  }
+}
+\end{lstlisting}
+
+\subsection{Co może zwrócić \texttt{readPlus}}
+
+Metoda \texttt{readPlus} zwraca obiekt typu \texttt{PlusResult<String>}, który może być jednym z dwóch typów:
+
+\subsubsection*{PlusSuccess<String> - Sukces operacji}
+\begin{itemize}
+    \item \texttt{isSuccess} = \texttt{true}
+    \item \texttt{data} = \texttt{String} - odczytane dane z bloku w formacie hex
+    \item \texttt{errorCode} = \texttt{null}
+    \item \texttt{message} = \texttt{null}
+    \item \texttt{exception} = \texttt{null}
+\end{itemize}
+
+\textbf{Przykład sukcesu:}
+\begin{lstlisting}[language=Java]
+PlusSuccess<String>(
+  data: "48656C6C6F20576F726C642100000000" // "Hello World!" in hex
+)
+\end{lstlisting}
+
+\newpage
+
+\subsubsection*{PlusError<String> - Błąd operacji}
+\begin{itemize}
+    \item \texttt{isSuccess} = \texttt{false}
+    \item \texttt{data} = \texttt{null}
+    \item \texttt{errorCode} = \texttt{PlusErrorCode} - kod błędu
+    \item \texttt{message} = \texttt{String?} - opcjonalny opis błędu
+    \item \texttt{exception} = \texttt{Object?} - opcjonalny wyjątek
+\end{itemize}
+
+\textbf{Przykłady błędów:}
+\begin{lstlisting}[language=Java]
+// Blad: walidacja parametrow
+PlusError<String>(
+  error: PlusErrorCode.invalidSector,
+  message: "Invalid sector (must be 1-39)"
+)
+
+// Blad: NFC nie dostepne
+PlusError<String>(
+  error: PlusErrorCode.nfcUnavailable,
+  message: "Please enable NFC in your device settings"
+)
+
+// Blad: autentykacja nie powiodla sie
+PlusError<String>(
+  error: PlusErrorCode.authenticationFailed,
+  message: "Authentication failed - check your key"
+)
+
+// Blad: utracono polaczenie z karta
+PlusError<String>(
+  error: PlusErrorCode.cardConnectionLost,
+  message: "Card connection lost - please keep card steady"
+)
+
+// Blad: nieznany blad z wyjatkiem
+PlusError<String>(
+  error: PlusErrorCode.unknownError,
+  message: "Unknown error. Try again",
+  exception: TimeoutException("Operation timed out")
+)
+\end{lstlisting}
+
+\newpage
+
+\subsubsection*{Format zwracanych danych}
+W przypadku sukcesu, \texttt{data} zawiera:
+\begin{itemize}
+    \item \textbf{Format:} String w formacie hex (32 znaki = 16 bajtów)
+    \item \textbf{Przykład:} \texttt{"48656C6C6F20576F726C642100000000"}
+    \item \textbf{Deszyfracja:} Dane są automatycznie deszyfrowane przed zwróceniem
+\end{itemize}
+
+\subsubsection*{Obsługa błędów w aplikacji}
+\begin{lstlisting}[language=Java]
+final result = await plus.readPlus(sector, block, keyType, keyHex);
+
+if (result.isSuccess) {
+    // Sukces - uzyj result.data
+    final blockData = result.data!;
+    print('Read data: $blockData');
+} else {
+    // Blad - sprawdz kod i wiadomosc
+    final errorCode = result.errorCode!;
+    final errorMessage = result.message;
+    
+    switch (errorCode) {
+        case PlusErrorCode.nfcUnavailable:
+            showDialog('Enable NFC in device settings');
+            break;
+        case PlusErrorCode.cardConnectionLost:
+            showDialog('Keep the card steady near the phone');
+            break;
+        case PlusErrorCode.authenticationFailed:
+            showDialog('Invalid authentication key');
+            break;
+        default:
+            showDialog('Error: ${errorMessage ?? errorCode.description}');
+    }
+}
+\end{lstlisting}
+
+\newpage
+
+\section{Moduły współdzielone}
+
+System NFC Services zawiera moduły współdzielone, które zapewniają wspólne funkcjonalności dla obu serwisów (MIFARE DESFire i MIFARE Plus). Te moduły zawierają narzędzia kryptograficzne, konwersje binarne oraz podstawowe operacje NFC.
+
+\subsection{Moduł \texttt{binary\_conversion.dart}}
+
+\subsubsection{Opis klasy}
+\texttt{BinaryConversion} to klasa narzędziowa do konwersji danych między różnymi formatami. Zapewnia metody do konwersji ciągów hex na formaty binarne, hex i ASCII z obsługą wyboru zakresu bajtów oraz odwracania bajtów.
+
+\subsubsection{Główne funkcjonalności}
+\begin{itemize}
+    \item \textbf{Konwersja do formatu binarnego} -- \texttt{toBinary()} konwertuje hex na ciąg binarny z odstępami między bajtami
+    \item \textbf{Konwersja do formatu hex} -- \texttt{toHex()} zwraca hex z odstępami między bajtami w formacie wielkich liter
+    \item \textbf{Konwersja do ASCII} -- \texttt{toASCII()} konwertuje hex na czytelny tekst ASCII z zastąpieniem nieprawidłowych znaków kropkami
+\end{itemize}
+
+\subsubsection{Przykłady użycia}
+\begin{lstlisting}[language=Java]
+// Konwersja do binarnego
+final binary = BinaryConversion.toBinary("12345678", 0, 1);
+// Wynik: "00010010 00110100"
+
+// Konwersja do hex
+final hex = BinaryConversion.toHex("12345678", 0, 1);
+// Wynik: "12 34"
+
+// Konwersja do ASCII
+final ascii = BinaryConversion.toASCII("48656C6C6F", 0, 4);
+// Wynik: "Hello"
+
+\end{lstlisting}
+
+\subsubsection{Obsługa błędów}
+Klasa zawiera szczegółową walidację parametrów wejściowych:
+\begin{itemize}
+    \item Sprawdzenie czy ciąg nie jest pusty
+    \item Weryfikacja parzystej długości ciągu hex
+    \item Walidacja poprawności znaków hex
+    \item Kontrola zakresu pozycji bajtów
+\end{itemize}
+
+\subsection{Moduł \texttt{crypto\_utilities.dart}}
+
+\subsubsection{Opis klasy}
+\texttt{CryptoUtilities} to klasa narzędziowa dla operacji kryptograficznych. Zapewnia metody do szyfrowania AES, generowania liczb losowych, manipulacji bajtami oraz obliczania CMAC dla operacji MIFARE Plus.
+
+\subsubsection{Główne funkcjonalności}
+
+\paragraph{Szyfrowanie AES}
+\begin{itemize}
+    \item \texttt{aesEncrypt()} -- szyfruje dane hex z kluczem i IV w trybie AES-CBC
+    \item \texttt{aesDecrypt()} -- deszyfruje dane hex z kluczem i IV w trybie AES-CBC
+    \item Obsługa trybu CBC bez paddingu dla operacji NFC
+    \item Walidacja parametrów (32 znaki hex dla klucza i IV)
+\end{itemize}
+
+\paragraph{Generowanie liczb losowych}
+\begin{itemize}
+    \item \texttt{generateSecureRandom()} -- generuje kryptograficznie bezpieczne losowe bajty
+    \item Używa \texttt{Random.secure()} dla operacji kryptograficznych
+    \item Typowo używane do generowania RandomA i RandomB w protokołach NFC
+\end{itemize}
+
+\paragraph{Manipulacja bajtami}
+\begin{itemize}
+    \item \texttt{rotateLeft()} -- obraca tablicę bajtów o jedną pozycję w lewo
+    \item \texttt{rotateRight()} -- obraca tablicę bajtów o jedną pozycję w prawo
+    \item \texttt{xorBytes()} -- wykonuje operację XOR na dwóch tablicach bajtów
+    \item \texttt{padToBlockSize()} -- dodaje padding PKCS\#7 do danych
+    \item \texttt{removePadding()} -- usuwa padding PKCS\#7 z danych
+\end{itemize}
+
+\paragraph{Konwersje liczbowe}
+\begin{itemize}
+    \item \texttt{intToLittleEndianHex()} -- konwertuje liczbę na 4-znakowy little-endian hex
+    \item \texttt{littleEndianHexToInt()} -- konwertuje little-endian hex na liczbę
+    \item Używane do formatowania komend NFC gdzie wymagany jest little-endian
+\end{itemize}
+
+\paragraph{Obliczanie CMAC}
+\begin{itemize}
+    \item \texttt{computeAesCmac()} -- oblicza AES-CMAC z określonym rozmiarem wyjścia
+    \item Obsługuje rozmiary 128, 192 i 256 bitów
+    \item Używane do weryfikacji integralności w operacjach MIFARE Plus
+\end{itemize}
+
+\subsubsection{Przykłady użycia}
+\begin{lstlisting}[language=Java]
+// Szyfrowanie AES
+final encrypted = CryptoUtilities.aesEncrypt(
+    "48656C6C6F20576F726C64", // "Hello World" in hex
+    "0123456789ABCDEF0123456789ABCDEF", // 32-char key
+    "00000000000000000000000000000000"  // 32-char IV
+);
+
+// Generowanie losowych bajtow
+final randomBytes = CryptoUtilities.generateSecureRandom(16);
+
+// Obliczanie CMAC
+final cmac = CryptoUtilities.computeAesCmac(
+    "0123456789ABCDEF0123456789ABCDEF", // key
+    "48656C6C6F20576F726C64", // data
+    128 // output bits
+);
+
+// Konwersja little-endian
+final leHex = CryptoUtilities.intToLittleEndianHex(258);
+// Wynik: "0201" (nie "0102")
+
+// XOR bajtow
+final result = CryptoUtilities.xorBytes(
+    Uint8List.fromList([1, 2, 3]),
+    Uint8List.fromList([4, 5, 6])
+);
+// Wynik: [5, 7, 5]
+\end{lstlisting}
+
+\subsubsection{Obsługa błędów}
+Klasa zawiera własny typ wyjątku \texttt{CryptoException} oraz szczegółową walidację:
+\begin{itemize}
+    \item Sprawdzenie poprawności parametrów AES (długość, format hex)
+    \item Walidacja parametrów CMAC (rozmiar wyjścia, format danych)
+    \item Kontrola rozmiaru tablic bajtów dla operacji XOR
+    \item Weryfikacja paddingu PKCS\#7
+\end{itemize}
+
+\subsubsection{Zależności zewnętrzne}
+Moduł wykorzystuje następujące biblioteki:
+\begin{itemize}
+    \item \texttt{convert} -- konwersje hex/binary
+    \item \texttt{encrypt} -- operacje kryptograficzne AES
+    \item \texttt{pointycastle} -- obliczanie CMAC i zaawansowane funkcje kryptograficzne
+\end{itemize}
+
+\subsection{Moduł \texttt{nfc\_utilities.dart}}
+
+\subsubsection{Opis klasy}
+\texttt{nfc\_utilities.dart} to moduł zawierający podstawowe narzędzia do obsługi operacji NFC. Zapewnia funkcje do sprawdzania dostępności NFC, wykrywania kart, wysyłania komend oraz obsługi błędów komunikacji z kartami.
+
+\subsubsection{Główne funkcjonalności}
+\begin{itemize}
+    \item \textbf{Sprawdzanie dostępności NFC} -- \texttt{isNfcAvailable()} weryfikuje czy NFC jest dostępne, wyłączone lub nieobsługiwane
+    \item \textbf{Wykrywanie kart} -- \texttt{pollForCard()} skanuje i wykrywa karty NFC z obsługą timeout'ów
+    \item \textbf{Wysyłanie komend} -- \texttt{sendCommand()} i \texttt{sendCommands()} wysyłają komendy hex do karty
+    \item \textbf{Walidacja odpowiedzi} -- \texttt{isSuccessfulResponse()} sprawdza poprawność odpowiedzi karty
+    \item \textbf{Obsługa błędów} -- \texttt{NfcErrorCode} i \texttt{NfcResult} zapewniają spójną obsługę błędów
+    \item \textbf{Debug logging} -- \texttt{debugPrint()} i \texttt{debugPrintWithLevel()} dla diagnostyki
+\end{itemize}
+
+\subsubsection{Obsługiwane typy kart}
+Moduł obsługuje następujące typy kart NFC:
+\begin{itemize}
+    \item \texttt{mifarePlus} -- karty MIFARE Plus SL3
+    \item \texttt{mifareDesfire} -- karty MIFARE DESFire
+\end{itemize}
+
+\subsubsection{Przykład użycia}
+\begin{lstlisting}[language=Java]
+// Sprawdzanie dostepnosci NFC
+final nfcResult = await isNfcAvailable();
+if (!nfcResult.isSuccess) {
+    print('NFC error: ${nfcResult.message}');
+    return;
+}
+
+// Wykrywanie karty
+final cardResult = await pollForCard(
+    debugMode: true,
+    timeout: 10,
+    alertMessage: "Please place card near device",
+    multipleTagMessage: "Multiple cards detected"
+);
+}
+\end{lstlisting}
+
+\end{document}

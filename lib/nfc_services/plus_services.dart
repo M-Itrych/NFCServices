@@ -70,7 +70,6 @@ const Map<String, String> nfcErrorCodeMap = {
 sealed class PlusResult<T> {
   const PlusResult();
   
-  bool get isError => this is PlusError<T>;
   bool get isSuccess => this is PlusSuccess<T>;
   PlusErrorCode? get errorCode => this is PlusError<T> ? (this as PlusError<T>).error : null;
   T? get data => this is PlusSuccess<T> ? (this as PlusSuccess<T>).data : null;
@@ -137,7 +136,7 @@ class PlusReadResult {
 }
 
 /// Main MIFARE Plus service for authentication and block reading
-class PlusServices {
+class PlusNfcServices {
   final bool debugMode;
   final int timeout;
   final String alertMessage;
@@ -149,7 +148,7 @@ class PlusServices {
   /// [timeout] specifies the NFC operation timeout in seconds
   /// [alertMessage] message shown to user during NFC scanning
   /// [multipleTagMessage] message shown when multiple tags are detected
-  PlusServices({
+  PlusNfcServices({
     this.debugMode = false,
     this.timeout = 10,
     this.alertMessage = "Scan your MIFARE Plus card",
@@ -423,7 +422,7 @@ class PlusServices {
       
       // Step 1: First authentication step
       final firstStepResult = await _processFirstAuthStep(sector, keyType, keyHex);
-      if (firstStepResult.isError) {
+      if (!firstStepResult.isSuccess) {
         return PlusError<PlusAuthResult>(firstStepResult.errorCode!, message: (firstStepResult as PlusError<Uint8List>).message, exception: (firstStepResult as PlusError<Uint8List>).exception);
       }
       
@@ -435,7 +434,7 @@ class PlusServices {
       
       // Step 3: Second authentication step
       final secondStepResult = await _processSecondAuthStep(plaRNDB, plaRNDA, keyHex, attempt);
-      if (secondStepResult.isError) {
+      if (!secondStepResult.isSuccess) {
         // Retry logic
         if (attempt < PlusConstants.maxRetryAttempts) {
           _log("Retrying authentication (attempt ${attempt + 1})", level: 'INFO');
@@ -722,7 +721,7 @@ class PlusServices {
   /// 
   /// [sector] the sector number (1-39)
   /// [block] the block number (0-14)
-  /// [keyType] the key type (KeyA or KeyB)
+  /// [keyType] the key type as string ("Key A" or "Key B")
   /// [keyHex] the AES key in hex format (32 characters)
   /// [isPlaintext] whether to read in plaintext mode
   /// [requiresMacOnResponse] whether MAC is required on response
@@ -731,19 +730,29 @@ class PlusServices {
   Future<PlusResult<String>> readPlus(
     int sector,
     int block,
-    KeyType keyType,
+    String keyType,
     String keyHex, {
     bool isPlaintext = true,
     bool requiresMacOnResponse = false,
     }) async {
     try {
+      // Convert string keyType to KeyType enum
+      KeyType keyTypeEnum;
+      if (keyType == "Key A") {
+        keyTypeEnum = KeyType.keyA;
+      } else if (keyType == "Key B") {
+        keyTypeEnum = KeyType.keyB;
+      } else {
+        return PlusError<String>(PlusErrorCode.invalidKeyType, message: "Invalid key type: $keyType. Must be 'Key A' or 'Key B'");
+      }
+      
       _log("Starting MIFARE Plus read operation", level: 'INFO');
       _log("Input parameters - Sector: $sector, Block: $block, Key type: $keyType", level: 'INFO');
       _log("Communication settings - Plaintext: $isPlaintext, MAC on response: $requiresMacOnResponse", level: 'INFO');
       _log("Authentication key: $keyHex", level: 'INFO');
 
       // Validate parameters
-      final validationResult = _validatePlusReadParameters(sector, block, keyType, keyHex);
+      final validationResult = _validatePlusReadParameters(sector, block, keyTypeEnum, keyHex);
       if (validationResult != PlusErrorCode.success) {
         _log("[${validationResult.code}] ${validationResult.description}", level: 'WARNING');
         return PlusError<String>(validationResult, message: validationResult.description);
@@ -771,8 +780,8 @@ class PlusServices {
 
       // Authenticate with sector
       _log("Starting sector authentication", level: 'INFO');
-      final authResult = await _authenticateSector(sector, _keyTypeToInt(keyType), keyHex);
-      if (authResult.isError) {
+      final authResult = await _authenticateSector(sector, _keyTypeToInt(keyTypeEnum), keyHex);
+      if (!authResult.isSuccess) {
         _log("[${authResult.errorCode?.code}] ${authResult.errorCode?.description}", level: 'ERROR');
         final error = authResult as PlusError<PlusAuthResult>;
         
@@ -788,7 +797,7 @@ class PlusServices {
       // Generate session keys
       _log("Generating session keys", level: 'INFO');
       final sessionKeysResult = _generateSessionKeys(authResult.data!.plaRNDB, authResult.data!.plaRNDA);
-      if (sessionKeysResult.isError) {
+      if (!sessionKeysResult.isSuccess) {
         _log("Session key generation failed", level: 'ERROR');
         return PlusError<String>(sessionKeysResult.errorCode!, message: sessionKeysResult.errorCode?.description);
       }
@@ -805,7 +814,7 @@ class PlusServices {
         requiresMacOnResponse,
         keyHex
       );
-      if (readResult.isError) {
+      if (!readResult.isSuccess) {
         _log("[${readResult.errorCode?.code}] ${readResult.errorCode?.description}", level: 'ERROR');
         final error = readResult as PlusError<PlusReadResult>;
         
